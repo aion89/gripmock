@@ -7,13 +7,13 @@ RUN mkdir /stubs
 RUN apk -U --no-cache add git protobuf
 
 RUN go get -u -v github.com/golang/protobuf/protoc-gen-go \
-	github.com/mitchellh/mapstructure \
 	google.golang.org/grpc \
 	google.golang.org/grpc/reflection \
 	golang.org/x/net/context \
 	github.com/go-chi/chi \
 	github.com/lithammer/fuzzysearch/fuzzy \
-	golang.org/x/tools/imports
+	golang.org/x/tools/imports \
+	github.com/grpc-ecosystem/grpc-gateway/...
 
 RUN go get -u -v github.com/gobuffalo/packr/v2/... \
                  github.com/gobuffalo/packr/v2/packr2

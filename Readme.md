@@ -73,11 +73,11 @@ For our `hello` service example we put stub with below text:
 ### Static stubbing
 You could initialize gripmock with stub json files and provide the path using `--stub` argument. For example you may 
 mount  your stub file in `/mystubs` folder then mount it to docker like
- 
+
  `docker run -p 4770:4770 -p 4771:4771 -v /mypath:/proto -v /mystubs:/stub tkpd/gripmock --stub=/stub /proto/hello.proto`
- 
+
 Please note that Gripmock still serve http stubbing to modify stored stubs on the fly.
- 
+
 ## <a name="input_matching"></a>Input Matching
 Stub will responding the expected response if only requested with matching rule of input. Stub service will serve `/find` endpoint with format:
 ```
@@ -139,4 +139,3 @@ Input matching has 3 rules to match an input. which is **equals**,**contains** a
   .
 }
 ```
-

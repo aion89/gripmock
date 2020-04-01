@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/mitchellh/mapstructure"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -141,8 +140,8 @@ type payload struct {
 }
 
 type response struct {
-	Data  interface{} `json:"data"`
-	Error string      `json:"error"`
+	Data  json.RawMessage   `json:"data"`
+	Error string            `json:"error"`
 }
 
 func findStub(service, method string, in, out interface{}) error {
@@ -177,6 +176,6 @@ func findStub(service, method string, in, out interface{}) error {
 		return fmt.Errorf(respRPC.Error)
 	}
 
-	return mapstructure.Decode(respRPC.Data, out)
+	return json.Unmarshal(respRPC.Data, out)
 }
 {{ end }}
