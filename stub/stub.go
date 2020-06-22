@@ -3,11 +3,12 @@ package stub
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
-	
+
 	"github.com/go-chi/chi"
 )
 
@@ -29,6 +30,7 @@ func RunStubServer(opt Options) {
 	r.Get("/", listStub)
 	r.Post("/find", handleFindStub)
 	r.Get("/clear", handleClearStub)
+	r.Post("/delete", handleDeleteStub)
 
 	if opt.StubPath != "" {
 		readStubFromFile(opt.StubPath)
@@ -47,16 +49,18 @@ func responseError(err error, w http.ResponseWriter) {
 }
 
 type Stub struct {
-	Service string `json:"service"`
-	Method  string `json:"method"`
-	Input   Input  `json:"input"`
-	Output  Output `json:"output"`
+	Service string    `json:"service"`
+	Method  string    `json:"method"`
+	Input   Input     `json:"input"`
+	Output  Output    `json:"output"`
+	ID      uuid.UUID `json:"id"`
 }
 
 type Input struct {
-	Equals   map[string]interface{} `json:"equals"`
-	Contains map[string]interface{} `json:"contains"`
-	Matches  map[string]interface{} `json:"matches"`
+	Equals         map[string]interface{} `json:"equals"`
+	Contains       map[string]interface{} `json:"contains"`
+	ContainsInList map[string]interface{} `json:"contains_in_list"`
+	Matches        map[string]interface{} `json:"matches"`
 }
 
 type Output struct {
@@ -77,6 +81,7 @@ func addStub(w http.ResponseWriter, r *http.Request) {
 		responseError(err, w)
 		return
 	}
+	stub.ID = uuid.New()
 
 	err = validateStub(stub)
 	if err != nil {
@@ -89,8 +94,10 @@ func addStub(w http.ResponseWriter, r *http.Request) {
 		responseError(err, w)
 		return
 	}
+	js, err := json.Marshal(stub)
 
-	w.Write([]byte("Success add stub"))
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
 }
 
 func listStub(w http.ResponseWriter, r *http.Request) {
@@ -106,13 +113,15 @@ func validateStub(stub *Stub) error {
 	if stub.Method == "" {
 		return fmt.Errorf("Method name can't be emtpy")
 	}
-	
+
 	// due to golang implementation
 	// method name must capital
 	stub.Method = strings.Title(stub.Method)
 
 	switch {
 	case stub.Input.Contains != nil:
+		break
+	case stub.Input.ContainsInList != nil:
 		break
 	case stub.Input.Equals != nil:
 		break
@@ -136,6 +145,12 @@ type findStubPayload struct {
 	Data    map[string]interface{} `json:"data"`
 }
 
+type deleteStubPayload struct {
+	Service string    `json:"service"`
+	Method  string    `json:"method"`
+	ID      uuid.UUID `json:"id"`
+}
+
 func handleFindStub(w http.ResponseWriter, r *http.Request) {
 	stub := new(findStubPayload)
 	err := json.NewDecoder(r.Body).Decode(stub)
@@ -143,11 +158,11 @@ func handleFindStub(w http.ResponseWriter, r *http.Request) {
 		responseError(err, w)
 		return
 	}
-	
+
 	// due to golang implementation
 	// method name must capital
 	stub.Method = strings.Title(stub.Method)
-	
+
 	output, err := findStub(stub)
 	if err != nil {
 		log.Println(err)
@@ -162,4 +177,43 @@ func handleFindStub(w http.ResponseWriter, r *http.Request) {
 func handleClearStub(w http.ResponseWriter, r *http.Request) {
 	clearStorage()
 	w.Write([]byte("OK"))
+}
+
+func handleDeleteStub(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		responseError(err, w)
+		return
+	}
+
+	request := new(deleteStubPayload)
+	err = json.Unmarshal(body, request)
+	if err != nil {
+		responseError(err, w)
+		return
+	}
+
+	err = validateDeleteRequest(request)
+	if err != nil {
+		responseError(err, w)
+		return
+	}
+
+	err = deleteStub(request)
+	if err != nil {
+		responseError(err, w)
+		return
+	}
+	w.Write([]byte("OK"))
+}
+
+func validateDeleteRequest(request *deleteStubPayload) error {
+	if request.Service == "" {
+		return fmt.Errorf("Service name can't be empty")
+	}
+
+	if request.Method == "" {
+		return fmt.Errorf("Method name can't be emtpy")
+	}
+	return nil
 }

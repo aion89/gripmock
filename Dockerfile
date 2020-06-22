@@ -11,6 +11,7 @@ RUN go get -u -v github.com/golang/protobuf/protoc-gen-go \
 	google.golang.org/grpc/reflection \
 	golang.org/x/net/context \
 	github.com/go-chi/chi \
+	github.com/google/uuid \
 	github.com/lithammer/fuzzysearch/fuzzy \
 	golang.org/x/tools/imports \
 	github.com/grpc-ecosystem/grpc-gateway/...

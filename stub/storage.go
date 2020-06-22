@@ -3,6 +3,7 @@ package stub
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"io/ioutil"
 	"log"
 	"reflect"
@@ -20,6 +21,7 @@ type stubMapping map[string]map[string][]storage
 var stubStorage = stubMapping{}
 
 type storage struct {
+	ID     uuid.UUID
 	Input  Input
 	Output Output
 }
@@ -29,6 +31,7 @@ func storeStub(stub *Stub) error {
 	defer mx.Unlock()
 
 	strg := storage{
+		ID:     stub.ID,
 		Input:  stub.Input,
 		Output: stub.Output,
 	}
@@ -78,6 +81,13 @@ func findStub(stub *findStubPayload) (*Output, error) {
 		if expect := stubrange.Input.Contains; expect != nil {
 			closestMatch = append(closestMatch, closeMatch{"contains", expect})
 			if contains(stubrange.Input.Contains, stub.Data) {
+				return &stubrange.Output, nil
+			}
+		}
+
+		if expect := stubrange.Input.ContainsInList; expect != nil {
+			closestMatch = append(closestMatch, closeMatch{"deep_contains", expect})
+			if deepContains(stubrange.Input.ContainsInList, stub.Data) {
 				return &stubrange.Output, nil
 			}
 		}
@@ -178,6 +188,22 @@ func contains(expect, actual map[string]interface{}) bool {
 	return true
 }
 
+func deepContains(expect, actual map[string]interface{}) bool {
+
+	for key, val := range expect {
+		actualValue, ok := actual[key]
+		if !ok {
+			return ok
+		}
+
+		if !reflect.DeepEqual(val, actualValue) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func matches(expect, actual map[string]interface{}) bool {
 	for keyExpect, valueExpect := range expect {
 		valueExpectString, ok := valueExpect.(string)
@@ -191,7 +217,7 @@ func matches(expect, actual map[string]interface{}) bool {
 
 		match, err := regexp.Match(valueExpectString, []byte(actualvalue))
 		if err != nil {
-			log.Println("Error on matching regex %s with %s error:%v", valueExpectString, actualvalue, err)
+			log.Printf("Error on matching regex %s with %s error:%v", valueExpectString, actualvalue, err)
 		}
 
 		if !match {
@@ -206,6 +232,29 @@ func clearStorage() {
 	defer mx.Unlock()
 
 	stubStorage = stubMapping{}
+}
+
+func deleteStub(request *deleteStubPayload) error {
+	mx.Lock()
+	defer mx.Unlock()
+
+	if stubStorage[request.Service] == nil {
+		return nil
+	}
+
+	if stubStorage[request.Service][request.Method] == nil {
+		return nil
+	}
+
+	stubs := stubStorage[request.Service][request.Method]
+	var newStubs []storage
+	for _, stub := range stubs {
+		if stub.ID != request.ID {
+			newStubs = append(newStubs, stub)
+		}
+	}
+	stubStorage[request.Service][request.Method] = newStubs
+	return nil
 }
 
 func readStubFromFile(path string) {
